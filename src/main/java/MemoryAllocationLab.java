@@ -49,7 +49,6 @@ public class MemoryAllocationLab {
      *   - Optionally: merge adjacent free blocks (bonus)
      */
     public static void processRequests(String filename) {
-        memory = new ArrayList<>();
 
         // TODO 1: Read file and initialize memory
         // Try-catch block to handle file reading
@@ -57,10 +56,29 @@ public class MemoryAllocationLab {
         // Create initial free block: new MemoryBlock(0, totalMemory, null)
         // Read remaining lines in a loop
         // Parse each line and call allocate() or deallocate()
-
-
-        // TODO 2: Implement these helper methods
-
+        memory = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+          totalMemory = Integer.parseInt(br.readLine().trim());
+          memory.add(new MemoryBlock(0, totalMemory, null));
+          String line;
+          while ((line = br.readLine()) != null) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            String[] parts = line.split("\\s+");
+            if (parts[0].equalsIgnoreCase("REQUEST")) {
+              String processName = parts[1];
+              int size = Integer.parseInt(parts[2]);
+              allocate(processName, size);
+            } else if (parts[0].equalsIgnoreCase("RELEASE")) {
+              String processName = parts[1];
+              deallocate(processName);
+            } else {
+              System.out.println("Unknown command: " + line);
+            }
+          } 
+        } catch (IOException e) {
+          System.err.println("Error reading file: " + e.getMessage());
+        }
     }
 
     /**
@@ -79,7 +97,46 @@ public class MemoryAllocationLab {
         // If not found:
         //   - Increment failedAllocations
         //   - Print failure message
-
+        for (int i = 0;  i < memory.size(); i++) {System.out.println("Allocated " + size + " KB to process " + processName);
+          MemoryBlock block = memory.get(i);
+          if (block.isFree() && block.size >= size) {
+            if (block.size > size) {
+              MemoryBlock newBlock = new MemoryBlock(block.start + size, block.size - size, null);
+              memory.add(i + 1, newBlock);
+            }
+            block.size = size;
+            block.processName = processName;
+            successfulAllocations++;
+            System.out.println("Allocated " + size + " KB to process " + processName);
+            return;
+          }
+        }
+        failedAllocations++;
+        System.out.println("Failed to allocate " + size + " KB to process " + processName);
+    }
+    
+    private static void deallocate(String processName) {
+      for (int i = 0; i < memory.size(); i++) {
+        MemoryBlock block = memory.get(i);
+        if (!block.isFree() && block.processName.equals(processName)) {
+          block.processName = null;
+          System.out.println("Released memory of process " + processName);
+          if (i > 0 && memory.get(i-1).isFree()) {
+            MemoryBlock prev = memory.get(i-1);
+            prev.size += block.size;
+            memory.remove(i);
+            i--;
+            block = prev;
+          }
+          if (i < memory.size() - 1 && memory.get(i + 1).isFree()) {
+            MemoryBlock next = memory.get(i+1);
+            block.size += next.size;
+            memory.remove(i+1);
+          }
+          return;
+        }
+      }
+      System.out.println("No process found with name: " + processName);
     }
 
     public static void displayStatistics() {
